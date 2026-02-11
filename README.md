@@ -34,4 +34,4 @@
 | DeepDive-32B\* | Search & Fetch (text) | 15.3 | – | 51.8 | 25.5 |
 | C-GRPO\* | Search & Fetch (text) | **24.8** | 56.3 | 57.7 | – |
 | WebShaper-QwQ-32B\* | Search & Fetch (text) | – | 53.3 | 35.0 | – |
-| Qwen3-VL-30B-A3B-ICA (Ours) | Search & Fetch (snap.) | 17.1 | 65.0 | **75.0** | **27.0** |
+| Qwen3-VL-30B-A3B-ICA (Ours) | Search & Fetch (snap.) | 17.1 | **65.0** | **75.0** | **27.0** |
