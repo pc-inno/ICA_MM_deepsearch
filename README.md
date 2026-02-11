@@ -1,7 +1,8 @@
 # ICA: Information-Aware Credit Assignment for Visually Grounded Long-Horizon Information-Seeking Agents
 
-[📄 Paper]| [🤗 Datasets](https://huggingface.co/collections/yyj1659748497/ica-dataset) | [🤗 Models]([https://huggingface.co/yyj1659748497/ICA-8B](https://huggingface.co/collections/yyj1659748497/ica))
-
+<div align="center">
+[📄 Paper]| [🤗 Datasets](https://huggingface.co/collections/yyj1659748497/ica-dataset) | [🤗 Models](https://huggingface.co/collections/yyj1659748497/ica)
+</div>
 ## News & Updates
 
 
