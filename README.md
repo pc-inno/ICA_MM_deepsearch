@@ -2,16 +2,16 @@
 
 [📄 Paper]| [🤗 Datasets](https://huggingface.co/collections/yyj1659748497/ica-dataset) | [🤗 Models]([https://huggingface.co/yyj1659748497/ICA-8B](https://huggingface.co/collections/yyj1659748497/ica))
 
-## News & Updates:
----
+## News & Updates
+
 
 ## introduction
----
-<img width="1486" height="664" alt="pipeline" src="https://github.com/user-attachments/assets/184625b6-ee4a-4bec-a01f-e3b5f3e4b86a" />
 
+<img width="1486" height="664" alt="pipeline" src="https://github.com/user-attachments/assets/184625b6-ee4a-4bec-a01f-e3b5f3e4b86a" />
+Comparison of different models on information-seeking benchmarks.
 ## Results Showcase
 
----
+
 | Model / Framework | Tools | BrowseComp | GAIA | Xbench-DS | Seal-0 |
 |---|---|---:|---:|---:|---:|
 | **Proprietary Agents** |  |  |  |  |  |
@@ -37,3 +37,4 @@
 | C-GRPO\* | Search & Fetch (text) | **24.8** | 56.3 | 57.7 | – |
 | WebShaper-QwQ-32B\* | Search & Fetch (text) | – | 53.3 | 35.0 | – |
 | Qwen3-VL-30B-A3B-ICA (Ours) | Search & Fetch (snap.) | 17.1 | **65.0** | **75.0** | **27.0** |
+
