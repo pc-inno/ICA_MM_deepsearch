@@ -9,7 +9,17 @@
 ## News & Updates
 code is coming soon
 
-## introduction
+
+## Introduction
+
+ICA is an information-aware optimization framework for open-web information seeking, designed to overcome the low signal-to-noise ratio of web content and the sparse, terminal rewards that hinder long-horizon learning. By representing webpages as rendered **snapshots** (instead of fragile HTML-to-text parsing) and performing **post-hoc, evidence-level credit assignment**, ICA converts noisy trajectories into dense supervision that highlights the truly informative retrieval steps. Integrated into a GRPO-based training pipeline, ICA yields consistent gains across diverse long-horizon information-seeking benchmarks and model scales.
+
+### Highlights
+
+- **Visual-native snapshots** preserve layout semantics (headings/tables/regions) and visually grounded evidence (figures/charts).
+- **Evidence-level credit assignment** estimates each retrieved unit’s marginal contribution and propagates rewards back to the responsible search turns.
+- **GRPO-based optimization** with snapshots + ICA improves stability under noisy web exploration.
+- **Consistent improvements** over text-based baselines across multiple benchmarks and model sizes.
 
 <img width="1486" height="664" alt="pipeline" src="https://github.com/user-attachments/assets/184625b6-ee4a-4bec-a01f-e3b5f3e4b86a" />
 
@@ -46,7 +56,7 @@ code is coming soon
 | Qwen3-VL-30B-A3B-ICA (Ours) | Search & Fetch (snap.) | 17.1 | **65.0** | **75.0** | **27.0** |
 
 **Comparison of different models on information-seeking benchmarks.**
-</div>
+
 
 
 | Stage | Method | BC-100 | GAIA | XDS | Seal-0 |
@@ -66,4 +76,4 @@ code is coming soon
 
 
 **Ablation Study on different components.**
-
+</div>
