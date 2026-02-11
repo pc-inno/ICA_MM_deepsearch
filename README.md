@@ -7,6 +7,9 @@
 </div>
 
 ## News & Updates
+2026-02-11: We have open-sourced the [paper](PASTE_PAPER_URL_HERE), [dataset](https://huggingface.co/collections/yyj1659748497/ica-dataset), and [models](https://huggingface.co/collections/yyj1659748497/ica)
+
+
 code is coming soon
 
 
@@ -28,6 +31,7 @@ ICA is an information-aware optimization framework for open-web information seek
 
 <div align="center">
 
+**Comparison of different models on information-seeking benchmarks.**
 
 | Model / Framework | Tools | BrowseComp | GAIA | Xbench-DS | Seal-0 |
 |---|---|---:|---:|---:|---:|
@@ -55,9 +59,9 @@ ICA is an information-aware optimization framework for open-web information seek
 | WebShaper-QwQ-32B\* | Search & Fetch (text) | – | 53.3 | 35.0 | – |
 | Qwen3-VL-30B-A3B-ICA (Ours) | Search & Fetch (snap.) | 17.1 | **65.0** | **75.0** | **27.0** |
 
-**Comparison of different models on information-seeking benchmarks.**
 
 
+**Ablation Study on different components.**
 
 | Stage | Method | BC-100 | GAIA | XDS | Seal-0 |
 |---|---|---:|---:|---:|---:|
@@ -75,5 +79,5 @@ ICA is an information-aware optimization framework for open-web information seek
 | RL | ICA - Snap. | 17.0 <span style="color: #1a7f37;">(+14.0)</span> | 65.0 <span style="color: #1a7f37;">(+33.9)</span> | 75.0 <span style="color: #1a7f37;">(+37.0)</span> | 27.0 <span style="color: #1a7f37;">(+17.1)</span> |
 
 
-**Ablation Study on different components.**
+
 </div>
