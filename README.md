@@ -31,7 +31,7 @@ ICA is an information-aware optimization framework for open-web information seek
 
 <div align="center">
 
-**Comparison of different models on information-seeking benchmarks.**
+**Table 1.** *Comparison of different models on information-seeking benchmarks.*
 
 | Model / Framework | Tools | BrowseComp | GAIA | Xbench-DS | Seal-0 |
 |---|---|---:|---:|---:|---:|
@@ -60,8 +60,8 @@ ICA is an information-aware optimization framework for open-web information seek
 | Qwen3-VL-30B-A3B-ICA (Ours) | Search & Fetch (snap.) | 17.1 | **65.0** | **75.0** | **27.0** |
 
 
+**Table 2.** *Ablation study on different components.*
 
-**Ablation Study on different components.**
 
 | Stage | Method | BC-100 | GAIA | XDS | Seal-0 |
 |---|---|---:|---:|---:|---:|
