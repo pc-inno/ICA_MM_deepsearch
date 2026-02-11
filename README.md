@@ -46,6 +46,8 @@ code is coming soon
 | Qwen3-VL-30B-A3B-ICA (Ours) | Search & Fetch (snap.) | 17.1 | **65.0** | **75.0** | **27.0** |
 
 **Comparison of different models on information-seeking benchmarks.**
+</div>
+
 
 | Stage | Method | BC-100 | GAIA | XDS | Seal-0 |
 |---|---|---:|---:|---:|---:|
@@ -64,4 +66,4 @@ code is coming soon
 
 
 **Ablation Study on different components.**
-</div>
+
