@@ -1,0 +1,6 @@
+{
+  "top_p": 0.95,
+  "top_k": 20,
+  "context_length": 262144,
+  "temperature": 0.95
+}
