@@ -1,3 +1,4 @@
+<img width="3618" height="1633" alt="pipeline" src="https://github.com/user-attachments/assets/cd945198-df80-4fea-a236-838625fa71eb" />
 # ICA: Information-Aware Credit Assignment for Visually Grounded Long-Horizon Information-Seeking Agents
 
 <div align="center">
@@ -21,7 +22,8 @@ We propose an evidence-centric framework for web agent learning that represents 
 - **Evidence-level credit assignment:** Estimates association-based utility scores for tool-acquired information and propagates dense rewards to the search and fetch turns that introduced it.
 - **Consistent improvements:** Our 8B model outperforms most reported open-source agents under 15B parameters.
 
-<img width="1486" height="664" alt="pipeline" src="https://github.com/user-attachments/assets/184625b6-ee4a-4bec-a01f-e3b5f3e4b86a" />
+<img width="3618" height="1633" alt="pipeline" src="https://github.com/user-attachments/assets/eca7e1b0-a7b9-4c58-b2ac-d90320bf321a" />
+
 
 
 ## Results Showcase
