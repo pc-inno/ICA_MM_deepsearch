@@ -8,6 +8,7 @@
 
 ## News & Updates
 2026-05-20: We have updated our paper, dataset and models!
+
 2026-02-11: We have open-sourced the [paper](PASTE_PAPER_URL_HERE), [dataset](https://huggingface.co/ICA-DeepResearch/datasets), and [models](https://huggingface.co/ICA-DeepResearch/models)
 
 
