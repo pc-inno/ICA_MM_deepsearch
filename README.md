@@ -2,8 +2,8 @@
 
 <div align="center">
   <a href="https://arxiv.org/abs/xxxx.xxxxx"><img alt="arXiv Paper" src="https://img.shields.io/badge/arXiv-Paper-b31b1b?style=flat-square&logo=arxiv&logoColor=white"></a>
-  <a href="https://huggingface.co/ICA-DeepResearch/datasets"><img alt="Hugging Face Datasets" src="https://img.shields.io/badge/Hugging%20Face-Datasets-ffbd59?style=flat-square&logo=huggingface&logoColor=white"></a>
-  <a href="https://huggingface.co/ICA-DeepResearch/models"><img alt="Hugging Face Models" src="https://img.shields.io/badge/Hugging%20Face-Models-ffbd59?style=flat-square&logo=huggingface&logoColor=white"></a>
+  <a href="https://huggingface.co/ICA-DeepResearch/datasets"><img alt="Hugging Face Datasets" src="https://img.shields.io/badge/Hugging%20Face-Datasets-ffbd59?style=flat-square&logo=huggingface&logoColor=FFD21E"></a>
+  <a href="https://huggingface.co/ICA-DeepResearch/models"><img alt="Hugging Face Models" src="https://img.shields.io/badge/Hugging%20Face-Models-ffbd59?style=flat-square&logo=huggingface&logoColor=FFD21E"></a>
 </div>
 
 ## News & Updates
@@ -217,12 +217,11 @@ We propose an evidence-centric framework for web agent learning that represents 
     </tr>
   </tbody>
 </table>
-</div>
 
 
 **Table 2.** *Ablation study on different components.*
 
-| Stage | Method | BC-100 | GAIA | XDS | Seal-0 |
+<!-- | Stage | Method | BC-100 | GAIA | XDS | Seal-0 |
 |---|---|---:|---:|---:|---:|
 | **Baseline: Qwen3-VL-8B-Thinking** |  |  |  |  |  |
 | Baseline | Base - RAG | 1.0 | 29.1 | 39.0 | 7.2 |
@@ -235,9 +234,9 @@ We propose an evidence-centric framework for web agent learning that represents 
 | SFT | SFT - RAG | 10.0 <span style="color: #1a7f37;">(+7.0)</span> | 57.3 <span style="color: #1a7f37;">(+26.2)</span> | 61.0 <span style="color: #1a7f37;">(+23.0)</span> | 22.5 <span style="color: #1a7f37;">(+12.6)</span> |
 | SFT | SFT - Snap. | 11.0 <span style="color: #1a7f37;">(+8.0)</span> | 60.2 <span style="color: #1a7f37;">(+29.1)</span> | 64.0 <span style="color: #1a7f37;">(+26.0)</span> | 23.4 <span style="color: #1a7f37;">(+13.5)</span> |
 | RL | GRPO - Snap. | 13.0 <span style="color: #1a7f37;">(+10.0)</span> | 57.3 <span style="color: #1a7f37;">(+26.2)</span> | 66.0 <span style="color: #1a7f37;">(+28.0)</span> | 24.3 <span style="color: #1a7f37;">(+14.4)</span> |
-| RL | ICA - Snap. | 17.0 <span style="color: #1a7f37;">(+14.0)</span> | 65.0 <span style="color: #1a7f37;">(+33.9)</span> | 75.0 <span style="color: #1a7f37;">(+37.0)</span> | 27.0 <span style="color: #1a7f37;">(+17.1)</span> |
+| RL | ICA - Snap. | 17.0 <span style="color: #1a7f37;">(+14.0)</span> | 65.0 <span style="color: #1a7f37;">(+33.9)</span> | 75.0 <span style="color: #1a7f37;">(+37.0)</span> | 27.0 <span style="color: #1a7f37;">(+17.1)</span> | -->
 
-<!-- <table>
+<table>
   <thead>
     <tr>
       <th align="left">Method</th>
@@ -287,8 +286,8 @@ We propose an evidence-centric framework for web agent learning that represents 
       <td align="center">25.2 <sub>(+18.0)</sub></td>
     </tr>
   </tbody>
-</table> -->
-
+</table>
+</div>
 
 ## Quick Start: Inference
 
