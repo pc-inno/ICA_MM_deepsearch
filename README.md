@@ -1,4 +1,3 @@
-<img width="3618" height="1633" alt="pipeline" src="https://github.com/user-attachments/assets/cd945198-df80-4fea-a236-838625fa71eb" />
 # ICA: Information-Aware Credit Assignment for Visually Grounded Long-Horizon Information-Seeking Agents
 
 <div align="center">
@@ -218,12 +217,12 @@ We propose an evidence-centric framework for web agent learning that represents 
     </tr>
   </tbody>
 </table>
+</div>
 
 
 **Table 2.** *Ablation study on different components.*
 
-
-<!-- | Stage | Method | BC-100 | GAIA | XDS | Seal-0 |
+| Stage | Method | BC-100 | GAIA | XDS | Seal-0 |
 |---|---|---:|---:|---:|---:|
 | **Baseline: Qwen3-VL-8B-Thinking** |  |  |  |  |  |
 | Baseline | Base - RAG | 1.0 | 29.1 | 39.0 | 7.2 |
@@ -236,9 +235,9 @@ We propose an evidence-centric framework for web agent learning that represents 
 | SFT | SFT - RAG | 10.0 <span style="color: #1a7f37;">(+7.0)</span> | 57.3 <span style="color: #1a7f37;">(+26.2)</span> | 61.0 <span style="color: #1a7f37;">(+23.0)</span> | 22.5 <span style="color: #1a7f37;">(+12.6)</span> |
 | SFT | SFT - Snap. | 11.0 <span style="color: #1a7f37;">(+8.0)</span> | 60.2 <span style="color: #1a7f37;">(+29.1)</span> | 64.0 <span style="color: #1a7f37;">(+26.0)</span> | 23.4 <span style="color: #1a7f37;">(+13.5)</span> |
 | RL | GRPO - Snap. | 13.0 <span style="color: #1a7f37;">(+10.0)</span> | 57.3 <span style="color: #1a7f37;">(+26.2)</span> | 66.0 <span style="color: #1a7f37;">(+28.0)</span> | 24.3 <span style="color: #1a7f37;">(+14.4)</span> |
-| RL | ICA - Snap. | 17.0 <span style="color: #1a7f37;">(+14.0)</span> | 65.0 <span style="color: #1a7f37;">(+33.9)</span> | 75.0 <span style="color: #1a7f37;">(+37.0)</span> | 27.0 <span style="color: #1a7f37;">(+17.1)</span> | -->
+| RL | ICA - Snap. | 17.0 <span style="color: #1a7f37;">(+14.0)</span> | 65.0 <span style="color: #1a7f37;">(+33.9)</span> | 75.0 <span style="color: #1a7f37;">(+37.0)</span> | 27.0 <span style="color: #1a7f37;">(+17.1)</span> |
 
-<table>
+<!-- <table>
   <thead>
     <tr>
       <th align="left">Method</th>
@@ -288,10 +287,7 @@ We propose an evidence-centric framework for web agent learning that represents 
       <td align="center">25.2 <sub>(+18.0)</sub></td>
     </tr>
   </tbody>
-</table>
-
-
-</div>
+</table> -->
 
 
 ## Quick Start: Inference
