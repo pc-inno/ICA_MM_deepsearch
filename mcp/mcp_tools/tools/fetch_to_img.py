@@ -69,7 +69,7 @@ class ScreenshotTool(BaseTool):
     MAX_TOTAL_LIMIT = 20000 
     DEFAULT_TIMEOUT = 60000 
     IMAGE_TAG = "<image>"
-    MAX_CONCURRENT_TABS = 32
+    MAX_CONCURRENT_TABS = 64
     # IMAGE_TAG = "<vision_start><image_pad><vision_end>"
 
     def __init__(self):
@@ -111,7 +111,7 @@ class ScreenshotTool(BaseTool):
                 browser = await self._playwright.chromium.launch(
                     headless=True,
                     proxy={
-                        "server": "http:xxx"
+                        "server": "http://10.120.3.250:7890"
                     },
                     args=[
                         '--no-sandbox',
@@ -171,9 +171,101 @@ class ScreenshotTool(BaseTool):
                     )
         return self._httpx_client
     
+    def _post_process_single_slice(self, img: Image.Image) -> str:
+        """
+        对单张切片进行统一的缩放、自适应调整和 Base64 编码
+        逻辑与原 _capture_single_url 中的处理完全一致
+        """
+        # 1. 转 RGB
+        if img.mode != 'RGB': 
+            img = img.convert('RGB')
+        
+        # 2. 缩放 0.7 倍 (Scale)
+        scale_factor = 0.7
+        new_width = int(img.width * scale_factor)
+        new_height = int(img.height * scale_factor)
+        img = img.resize((new_width, new_height), resample=Image.LANCZOS)
+
+        # 3. 极端长宽比处理 (Adaptive Resize)
+        if _need_process(img.width, img.height, 100):
+            img = adaptive_resize_image(img, max_aspect_ratio=100)
+            
+        # 4. 转 Base64
+        return self._pil_to_base64_str(img)
+
+    def _slice_and_process_image(self, full_img: Image.Image) -> List[Dict[str, Any]]:
+        """
+        将一张大图（如 Jina 返回的长图）按照 SLICE_HEIGHT 切割，并应用后处理
+        模拟 Playwright 的滚动截图行为
+        """
+        w, h = full_img.size
+        
+        # --- 新增：应用最大高度限制 ---
+        # 如果图片高度超过 20000px，只处理前 20000px
+        effective_height = min(h, self.MAX_TOTAL_LIMIT)
+        
+        processed_slices = []
+        
+        # 如果有效高度小于切片高度，直接处理（当做一张图）
+        if effective_height <= self.SLICE_HEIGHT:
+            self.logger.warning(f"Image height {h} is within slice limit or clipped.")
+            # 注意：这里如果原图很大但被limit裁减了，实际上也应该裁剪一下原图
+            # 但通常这种情况较少见（除非 MAX_TOTAL_LIMIT 设置得比 SLICE_HEIGHT 还小）
+            # 为了严谨，这里做一个 crop
+            if h > effective_height:
+                full_img = full_img.crop((0, 0, w, effective_height))
+                
+            b64 = self._post_process_single_slice(full_img)
+            processed_slices.append({
+                'image': b64,
+                'image_wh': full_img.size, 
+                'source': 'jina_fallback'
+            })
+            return processed_slices
+
+        # 开始切片循环
+        current_y = 0
+        MIN_SLICE_HEIGHT = 200 
+        
+        # --- 修改：循环条件使用 effective_height ---
+        while current_y < effective_height:
+            # --- 修改：剩余高度计算使用 effective_height ---
+            remaining = effective_height - current_y
+            
+            # 逻辑一致性：如果剩余部分太小且已有切片，则丢弃末尾
+            if remaining < MIN_SLICE_HEIGHT and len(processed_slices) > 0:
+                break
+                
+            # 计算裁剪区域
+            slice_h = min(self.SLICE_HEIGHT, remaining)
+            box = (0, current_y, w, current_y + slice_h)
+            
+            try:
+                # self.logger.warning("slice_img!") # 调试日志可按需保留
+                # Crop (left, upper, right, lower)
+                slice_img = full_img.crop(box)
+                
+                # 应用统一的缩放和编码逻辑
+                b64 = self._post_process_single_slice(slice_img)
+                
+                processed_slices.append({
+                    'image': b64,
+                    'image_wh': slice_img.size, 
+                    'source': 'jina_fallback'
+                })
+                
+            except Exception as e:
+                self.logger.warning(f"Failed to crop Jina image at y={current_y}: {e}")
+
+            # 计算下一次的 Y 坐标
+            next_step = self.SLICE_HEIGHT - self.OVERLAP_HEIGHT
+            current_y += next_step
+            
+        return processed_slices
+    
     async def _fetch_with_jina_screenshot_fallback(self, url: str) -> List[Dict[str, Any]]:
         """
-        截图兜底方案：智能处理 Jina 返回 (支持直接二进制图片 或 JSON 链接)
+        截图兜底方案：智能处理 Jina 返回，并应用切片逻辑
         """
         if not self.jina_api_key:
             self.logger.warning("Jina API key not configured, skipping fallback.")
@@ -181,111 +273,61 @@ class ScreenshotTool(BaseTool):
             
         self.logger.info(f"Attempting Jina AI screenshot fallback for {url}...")
         
-        # 1. 发起请求
         fetch_url = f"https://r.jina.ai/{url}"
         headers = {
             "Authorization": f"Bearer {self.jina_api_key.strip()}",
-            "X-Return-Format": "screenshot",
+            "X-Return-Format": "pageshot",
             "X-No-Cache": "true"
         }
 
         try:
             client = await self._get_httpx_client()
-            
-            # 使用 follow_redirects=True 防止 302 错误
             response = await client.get(
                 fetch_url, 
                 headers=headers, 
                 timeout=60.0, 
                 follow_redirects=True
             )
-            
             if response.status_code != 200:
                 self.logger.warning(f"Jina AI request failed: {response.status_code}")
                 return []
 
-            # === 核心修复：检查 Content-Type 来决定怎么处理 ===
             content_type = response.headers.get("content-type", "").lower()
             img_bytes = None
             
+            # --- 1. 获取图片二进制数据 ---
             if "image" in content_type or response.content.startswith(b'\x89PNG'):
-                # 【情况 B】直接返回了二进制图片
                 self.logger.info("Jina returned binary image directly.")
                 img_bytes = response.content
             
             elif "application/json" in content_type:
-                # 【情况 A】返回了 JSON，需要提取 URL 二次下载
                 try:
                     resp_json = response.json()
                     screenshot_url = resp_json.get("data", {}).get("screenshot")
-                    
-                    if not screenshot_url:
-                        self.logger.warning("Jina AI response missing screenshot URL")
-                        return []
+                    if not screenshot_url: return []
                         
                     self.logger.info(f"Downloading screenshot from Jina URL: {screenshot_url}")
                     img_response = await client.get(screenshot_url, timeout=30.0, follow_redirects=True)
                     if img_response.status_code == 200:
                         img_bytes = img_response.content
-                    else:
-                        self.logger.warning(f"Failed to download image from Jina URL: {img_response.status_code}")
-                        return []
                 except Exception as json_err:
                     self.logger.warning(f"Failed to parse Jina JSON: {json_err}")
                     return []
-            else:
-                # 未知类型 (可能是纯文本报错)
-                self.logger.warning(f"Unknown content type from Jina: {content_type}")
+            
+            if not img_bytes:
                 return []
 
-            # 2. 统一处理图片数据
-            if img_bytes:
-                img = Image.open(BytesIO(img_bytes))
-                
-                # 图片预处理
-                if img.mode != 'RGB': 
-                    img = img.convert('RGB')
-                
-                # 缩放处理
-                scale_factor = 0.7
-                new_width = int(img.width * scale_factor)
-                new_height = int(img.height * scale_factor)
-                img = img.resize((new_width, new_height), resample=Image.LANCZOS)
-
-                # 转 Base64
-                img_b64_str = self._pil_to_base64_str(img)
-                
-                return [{
-                    'image': img_b64_str, 
-                    'image_wh': img.size,
-                    'source': 'jina_fallback'
-                }]
+            # --- 2. 统一转换为 PIL Image ---
             
-            return []
+            img = Image.open(BytesIO(img_bytes))
+            
+            # --- 3. 调用新的切片处理方法 (替代原本的直接缩放) ---
+            # 这里会将长图切割成多张图，逻辑同 Playwright
+            return self._slice_and_process_image(img)
 
         except Exception as e:
-            # 这里的 e 会捕获网络超时等其他异常
             self.logger.warning(f"Jina AI screenshot fallback error: {e}")
             return []
-    
-    async def _ensure_browser(self):
-        if self._browser: return
-        async with self._init_lock:
-            if not self._browser:
-                self._playwright = await async_playwright().start()
-                self._browser = await self._playwright.chromium.launch(
-                    headless=True,
-                    proxy={
-                        "server": "http://xxx",
-                        "username": "xxx",
-                        "password": "xxx",
-                    },
-                    args=[
-                        '--no-sandbox', '--disable-setuid-sandbox', 
-                        '--disable-dev-shm-usage', '--disable-gpu',
-                        '--ignore-certificate-errors', '--ignore-ssl-errors'
-                    ]
-                )
 
     async def execute(self, input_data: ScreenshotInput) -> ToolOutput:
         try:
@@ -295,80 +337,31 @@ class ScreenshotTool(BaseTool):
 
         async def _process_one_url(url: str):
             async with self._context_semaphore:
-                attempts = 3
-                while attempts > 0:
-                    browser = await self._acquire_browser()
+                browser = await self._acquire_browser()
 
-                    if _should_use_jina_direct(url):
-                        fallback_images = await self._fetch_with_jina_screenshot_fallback(url)
-                        if fallback_images:
-                            # 兜底成功：
-                            # 构造与正常截图完全一致的数据结构
-                            # 这样下游 LLM 根本不知道这是兜底来的
-                            fallback_tags = [self.IMAGE_TAG for _ in fallback_images]
-                            
-                            text_structures ={
-                                "link": url,
-                                "images": fallback_tags,
-                                "type": "Recovered via Jina AI" # 可选：标记一下
-                            }
-                            output_images_nested.append(fallback_images)
-                            self.logger.info(f"Jina fallback successful for {url}")
-                            data={
-                                "text": text_structures,
-                                "images": output_images_nested
-                            }
-                        # if content:
-                        #     return {
-                        #         "text": {
-                        #             "link": url,
-                        #             "content": content,
-                        #             "type": "text_direct",
-                        #         },
-                        #         "images": []
-                        #     }
-                        return {
-                            "text": {"link": url, "error": "Jina direct fetch failed"},
-                            "images": []
-                        }
+                try:
+                    pil_images = await self._capture_single_url(browser, url)
 
-                    try:
-                        pil_images = await self._capture_single_url(browser, url)
+                    images = []
+                    tags = []
+                    for img in pil_images:
+                        images.append({
+                            "image": self._pil_to_base64_str(img),
+                            "image_wh": img.size
+                        })
+                        tags.append(self.IMAGE_TAG)
 
-                        images = []
-                        tags = []
-                        for img in pil_images:
-                            images.append({
-                                "image": self._pil_to_base64_str(img),
-                                "image_wh": img.size
-                            })
-                            tags.append(self.IMAGE_TAG)
+                    return {
+                        "text": {"link": url, "images": tags},
+                        "images": images
+                    }
 
-                        return {
-                            "text": {"link": url, "images": tags},
-                            "images": images
-                        }
-
-                    except Exception as e:
-                        content = await self._fetch_with_jina_screenshot_fallback(url)
-                        if content:
-                            return {
-                                "text": {
-                                    "link": url,
-                                    "content": content,
-                                    "type": "text_fallback",
-                                },
-                                "images": []
-                            }
-                        return {
-                            "text": {"link": url, "error": str(e)},
-                            "images": []
-                        }
-                    
-                return {
-                        "text": {"link": url, "error": "fail to fetch page"},
+                except Exception as e:
+                    self.logger.warning(f"Screenshot failed for {url}: {e}")
+                    return {
+                        "text": {"link": url, "error": f"Failed to capture: {e}"},
                         "images": []
-                        }
+                    }
 
         results = await asyncio.gather(
             *[_process_one_url(url) for url in input_data.url],
@@ -502,7 +495,6 @@ class ScreenshotTool(BaseTool):
                         quality=70,
                         caret="hide"
                     )
-                    print('image_bytes!')
                     img = Image.open(BytesIO(image_bytes))
                     if img.mode != 'RGB': img = img.convert('RGB')
                     # 3. --- 新增：将长宽都压缩为原来的 0.7 倍 ---
@@ -541,10 +533,121 @@ class ScreenshotTool(BaseTool):
     async def _auto_scroll(self, page):
         h = 0
         while h < self.MAX_TOTAL_LIMIT:
-            h += 720 
+            h += 720
             await page.evaluate(f"window.scrollTo(0, {h})")
             await asyncio.sleep(0.1)
             max_h = await page.evaluate("document.body.scrollHeight")
             if h > max_h: break
         await page.evaluate("window.scrollTo(0, 0)")
         await asyncio.sleep(0.5)
+
+
+# ---------------------------------------------------------------------------
+# OpenAI function-calling schema (used by inference.py to declare tools)
+# ---------------------------------------------------------------------------
+
+fetch_page_tool_img = {
+    "type": "function",
+    "function": {
+        "name": "fetch_url",
+        "description": "Fetch webpage(s) and return the screenshot of the page.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "The URL(s) of the webpage(s) to Fetch. "
+                        "Can be a single URL or an array of URLs."
+                    ),
+                }
+            },
+            "required": ["url"],
+        },
+    },
+}
+
+
+# ---------------------------------------------------------------------------
+# Sync MCP client wrapper (launches MCP server subprocess via StdioTransport)
+# ---------------------------------------------------------------------------
+
+def call_fetch_url_sync_img(arguments):
+    """
+    Synchronously call the ``fetch_url`` MCP tool that returns page screenshots.
+
+    Launches an MCP server subprocess via ``StdioTransport``, sends the request,
+    and returns the raw MCP result object.  On failure returns ``None``.
+
+    All paths are resolved from environment variables.  The bash script
+    (run_inference.sh) is the single source of truth for these paths.
+    """
+    import os as _os
+    from fastmcp import Client
+    from fastmcp.client.transports import StdioTransport
+
+    _project_root = _os.path.abspath(_os.path.join(_os.path.dirname(__file__), "..", ".."))
+
+    pw_path = _os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "")
+    whl_path = _os.environ.get("MCP_WHL_PATH", "")
+    cfg_path = _os.environ.get("MCP_CONFIG_PATH", "")
+    log_path = _os.environ.get("MCP_LOG_FILE", _os.path.join(_project_root, "logs", "mcp_server.log"))
+
+    missing = []
+    if not pw_path:
+        missing.append("PLAYWRIGHT_BROWSERS_PATH")
+    if not whl_path:
+        missing.append("MCP_WHL_PATH")
+    if not cfg_path:
+        missing.append("MCP_CONFIG_PATH")
+    if missing:
+        print(f"[call_fetch_url_sync_img] Missing required env vars: {', '.join(missing)}")
+        return None
+
+    _os.makedirs(_os.path.dirname(log_path), exist_ok=True)
+
+    tool_name = "fetch_url"
+
+    async def _run():
+        transport = StdioTransport(
+            command="bash",
+            args=[
+                "-c",
+                f"export PLAYWRIGHT_BROWSERS_PATH={pw_path} && "
+                f"UV_INDEX_URL=https://mirrors.aliyun.com/pypi/simple uv run --isolated --no-project "
+                f"--with {whl_path} "
+                f"mcp-tools-server --config {cfg_path} "
+                f"2>> {log_path}",
+            ],
+        )
+        client = Client(transport)
+        try:
+            async with client:
+                result = await asyncio.wait_for(
+                    client.call_tool(name=tool_name, arguments=arguments),
+                    timeout=50,
+                )
+                return result
+        except Exception as e:
+            print(f"[call_fetch_url_sync_img] Internal error: {e}")
+            return None
+        finally:
+            await asyncio.sleep(0.1)
+
+    try:
+        result = asyncio.run(_run())
+        if result:
+            # Debug: show what MCP returned
+            if result.content:
+                c0 = result.content[0]
+                txt = getattr(c0, 'text', None)
+                print(f"[DEBUG MCP] content[0] type={type(c0).__name__}, text[:200]={repr((txt or '')[:200])}")
+            else:
+                print(f"[DEBUG MCP] result.content is empty, isError={getattr(result, 'isError', '?')}")
+            return result
+        print("[call_fetch_url_sync_img] No valid result returned")
+        return None
+    except Exception as e:
+        print(f"[call_fetch_url_sync_img] Failed: {e}")
+        return None
