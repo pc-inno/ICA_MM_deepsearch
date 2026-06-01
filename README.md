@@ -1,9 +1,9 @@
 # ICA: Information-Aware Credit Assignment for Visually Grounded Long-Horizon Information-Seeking Agents
 
 <div align="center">
-  <a href="https://arxiv.org/abs/xxxx.xxxxx">📄 Paper</a> |
-  <a href="https://huggingface.co/ICA-DeepResearch/datasets">🤗 Datasets</a> |
-  <a href="https://huggingface.co/ICA-DeepResearch/models">🤗 Models</a>
+  <a href="https://arxiv.org/abs/xxxx.xxxxx"><img alt="arXiv Paper" src="https://img.shields.io/badge/arXiv-Paper-b31b1b?style=flat-square&logo=arxiv&logoColor=white"></a>
+  <a href="https://huggingface.co/ICA-DeepResearch/datasets"><img alt="Hugging Face Datasets" src="https://img.shields.io/badge/Hugging%20Face-Datasets-ffbd59?style=flat-square&logo=huggingface&logoColor=white"></a>
+  <a href="https://huggingface.co/ICA-DeepResearch/models"><img alt="Hugging Face Models" src="https://img.shields.io/badge/Hugging%20Face-Models-ffbd59?style=flat-square&logo=huggingface&logoColor=white"></a>
 </div>
 
 ## News & Updates
