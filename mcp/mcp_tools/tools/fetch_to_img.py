@@ -620,6 +620,7 @@ def call_fetch_url_sync_img(arguments):
                 f"mcp-tools-server --config {cfg_path} "
                 f"2>> {log_path}",
             ],
+            keep_alive=False,
         )
         client = Client(transport)
         try:
@@ -633,6 +634,10 @@ def call_fetch_url_sync_img(arguments):
             print(f"[call_fetch_url_sync_img] Internal error: {e}")
             return None
         finally:
+            try:
+                await client.close()
+            except Exception:
+                pass
             await asyncio.sleep(0.1)
 
     try:

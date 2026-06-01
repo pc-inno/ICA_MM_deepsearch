@@ -10,7 +10,11 @@ set -euo pipefail
 # =============================================================================
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
+if [ -f "$PROJECT_DIR/.env" ]; then
+  set -a
+  source "$PROJECT_DIR/.env"
+  set +a
+fi
 # ----------------------------- 可配置参数 -------------------------------------
 VLLM_MODEL_NAME=${VLLM_MODEL_NAME:-Qwen3-VL-30B-A3B}
 VLLM_HOST=${VLLM_HOST:-10.120.2.179}
