@@ -2,13 +2,13 @@
 
 <div align="center">
   <a href="https://arxiv.org/abs/xxxx.xxxxx">📄 Paper</a> |
-  <a href="https://huggingface.co/collections/yyj1659748497/ica-dataset">🤗 Datasets</a> |
-  <a href="https://huggingface.co/collections/yyj1659748497/ica">🤗 Models</a>
+  <a href="https://huggingface.co/ICA-DeepResearch/datasets">🤗 Datasets</a> |
+  <a href="https://huggingface.co/ICA-DeepResearch/models">🤗 Models</a>
 </div>
 
 ## News & Updates
 2026-05-20: We have updated our paper, dataset and models!
-2026-02-11: We have open-sourced the [paper](PASTE_PAPER_URL_HERE), [dataset](https://huggingface.co/collections/yyj1659748497/ica-dataset), and [models](https://huggingface.co/collections/yyj1659748497/ica)
+2026-02-11: We have open-sourced the [paper](PASTE_PAPER_URL_HERE), [dataset](https://huggingface.co/ICA-DeepResearch/datasets), and [models](https://huggingface.co/ICA-DeepResearch/models)
 
 
 ## Introduction
@@ -259,31 +259,31 @@ We propose an evidence-centric framework for web agent learning that represents 
     </tr>
     <tr>
       <td align="left">SFT - Text</td>
-      <td align="center">11.0 <span style="color: green;">(+10.0)</span></td>
-      <td align="center">54.3 <span style="color: green;">(+25.2)</span></td>
-      <td align="center">55.0 <span style="color: green;">(+16.0)</span></td>
-      <td align="center">20.7 <span style="color: green;">(+13.5)</span></td>
+      <td align="center">11.0 <span><font color="green">(+10.0)</font></span></td>
+      <td align="center">54.3 <span><font color="green">(+25.2)</font></span></td>
+      <td align="center">55.0 <span><font color="green">(+16.0)</font></span></td>
+      <td align="center">20.7 <span><font color="green">(+13.5)</font></span></td>
     </tr>
     <tr>
       <td align="left">SFT - Snap.</td>
-      <td align="center">18.0 <span style="color: green;">(+17.0)</span></td>
-      <td align="center">56.4 <span style="color: green;">(+27.3)</span></td>
-      <td align="center">66.0 <span style="color: green;">(+27.0)</span></td>
-      <td align="center">23.4 <span style="color: green;">(+16.2)</span></td>
+      <td align="center">18.0 <span><font color="green">(+17.0)</font></span></td>
+      <td align="center">56.4 <span><font color="green">(+27.3)</font></span></td>
+      <td align="center">66.0 <span><font color="green">(+27.0)</font></span></td>
+      <td align="center">23.4 <span><font color="green">(+16.2)</font></span></td>
     </tr>
     <tr>
       <td align="left">GSPO - Snap.</td>
-      <td align="center">22.0 <span style="color: green;">(+21.0)</span></td>
-      <td align="center">60.2 <span style="color: green;">(+31.1)</span></td>
-      <td align="center">68.0 <span style="color: green;">(+29.0)</span></td>
-      <td align="center">24.3 <span style="color: green;">(+17.1)</span></td>
+      <td align="center">22.0 <span><font color="green">(+21.0)</font></span></td>
+      <td align="center">60.2 <span><font color="green">(+31.1)</font></span></td>
+      <td align="center">68.0 <span><font color="green">(+29.0)</font></span></td>
+      <td align="center">24.3 <span><font color="green">(+17.1)</font></span></td>
     </tr>
     <tr>
       <td align="left">ICA - Snap.</td>
-      <td align="center">25.0 <span style="color: green;">(+24.0)</span></td>
-      <td align="center">69.9 <span style="color: green;">(+40.8)</span></td>
-      <td align="center">71.0 <span style="color: green;">(+32.0)</span></td>
-      <td align="center">25.2 <span style="color: green;">(+18.0)</span></td>
+      <td align="center">25.0 <span><font color="green">(+24.0)</font></span></td>
+      <td align="center">69.9 <span><font color="green">(+40.8)</font></span></td>
+      <td align="center">71.0 <span><font color="green">(+32.0)</font></span></td>
+      <td align="center">25.2 <span><font color="green">(+18.0)</font></span></td>
     </tr>
   </tbody>
 </table>
