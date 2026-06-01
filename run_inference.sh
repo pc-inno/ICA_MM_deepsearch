@@ -24,7 +24,6 @@ LIMIT=${LIMIT:-0}
 THINK_MODE=${THINK_MODE:-true}
 
 # ----------------------------- 环境变量 ---------------------------------------
-export SERPER_API_KEY=fb58ec976a502465f8602a26e55021890a72566b
 export UV_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
 export UV_CACHE_DIR=$PROJECT_DIR/mcp/.cache/uv
 export PLAYWRIGHT_BROWSERS_PATH=$PROJECT_DIR/mcp/pw_browsers
