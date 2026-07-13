@@ -12,6 +12,7 @@ from openai.types.chat.chat_completion_message_tool_call import (
 from mcp_tools.tools import (
     call_fetch_url_sync_img,
     fetch_page_tool_img,
+    fetch_page_tool_dom,
     web_search,
     web_search_tool,
 )
@@ -66,17 +67,19 @@ def _extract_tool_calls_from_text(text):
 
 
 VLLM_MODEL_NAME = os.environ.get("VLLM_MODEL_NAME", "Qwen3-VL-8B-A3B")
+FETCH_STRATEGY = os.environ.get("FETCH_STRATEGY", "image")
 
 
 def _generate(client, messages, *, think_mode=True):
     """Single model generation call."""
+    fetch_tool_schema = fetch_page_tool_dom if FETCH_STRATEGY == "dom" else fetch_page_tool_img
     return client.chat.completions.create(
         max_tokens=8192,
         messages=messages,
         model=VLLM_MODEL_NAME,
         stream=False,
         temperature=1.0,
-        tools=[web_search_tool, fetch_page_tool_img],
+        tools=[web_search_tool, fetch_tool_schema],
         tool_choice="none",
         extra_body={
             "top_k": 20,
@@ -161,7 +164,7 @@ def _handle_web_search(func_args, tool_call_id, search_ref_start_idx, recent_que
 
 
 def _handle_fetch_url(func_args, tool_call_id):
-    """Fetch URL(s) and return multimodal tool output (text + images)."""
+    """Fetch URL(s) and return tool output based on FETCH_STRATEGY."""
     url_arg = func_args.get("url", "")
     urls = url_arg if isinstance(url_arg, list) else ([url_arg] if url_arg else [])
     urls = [u for u in urls if u]
@@ -198,6 +201,26 @@ def _handle_fetch_url(func_args, tool_call_id):
             "content": json.dumps({"error": "MCP returned invalid JSON"}, ensure_ascii=False),
             "tool_call_id": tool_call_id,
         }
+
+    # ---- DOM strategy: return pure text, no images ----
+    if FETCH_STRATEGY == "dom":
+        text_parts = res_dict.get("text", [])
+        dom_content = []
+        for part in text_parts:
+            link = part.get("link", "")
+            snapshot = part.get("dom_snapshot", "")
+            error = part.get("error", "")
+            if error:
+                dom_content.append(f"[{link}] Error: {error}")
+            else:
+                dom_content.append(f"[{link}]\n{snapshot}")
+        return {
+            "role": "tool",
+            "tool_call_id": tool_call_id,
+            "content": "\n\n".join(dom_content),
+        }
+
+    # ---- Image strategy: multimodal content (text + image_url) ----
     text_content = res_dict.get("text", "")
 
     image_list = []

@@ -17,15 +17,28 @@ if [ -f "$PROJECT_DIR/.env" ]; then
 fi
 # ----------------------------- 可配置参数 -------------------------------------
 VLLM_MODEL_NAME=${VLLM_MODEL_NAME:-Qwen3-VL-30B-A3B}
-VLLM_HOST=${VLLM_HOST:-10.120.2.179}
+VLLM_HOST=${VLLM_HOST:-10.120.6.253}
 VLLM_PORT=${VLLM_PORT:-8080}
 API_KEY=${API_KEY:-EMPTY}
 
-INPUT_FILE=${INPUT_FILE:-$PROJECT_DIR/data/BrowseComp_subset_debug.jsonl}
-OUTPUT_FILE=${OUTPUT_FILE:-$PROJECT_DIR/outputs/results.jsonl}
+MODEL_SIZE="unknown"
+case "${VLLM_MODEL_NAME,,}" in
+  *30b*) MODEL_SIZE="30b" ;;
+  *8b*) MODEL_SIZE="8b" ;;
+esac
+
+FETCH_STRATEGY=${FETCH_STRATEGY:-image}  # image | dom
+INPUT_FILE=${INPUT_FILE:-$PROJECT_DIR/data/BrowseComp_subset_final.jsonl}
+OUTPUT_FILE=${OUTPUT_FILE:-$PROJECT_DIR/outputs/browsecomp_subset_results_sft_${MODEL_SIZE}_${FETCH_STRATEGY}.jsonl}
 CONCURRENCY=${CONCURRENCY:-10}
 LIMIT=${LIMIT:-0}
 THINK_MODE=${THINK_MODE:-true}
+
+# LLM judge configuration.  The judged filename includes both the evaluated
+# model size and judge model, e.g. browsecomp_subset_results_30b_image_judged_deepseek-v4-flash.jsonl.
+JUDGE_MODEL=${JUDGE_MODEL:-bailian/deepseek-v4-flash}
+JUDGE_OUTPUT_FILE=${JUDGE_OUTPUT_FILE:-${OUTPUT_FILE%.jsonl}_judged_${JUDGE_MODEL}.jsonl}
+JUDGE_CONCURRENCY=${JUDGE_CONCURRENCY:-8}
 
 # ----------------------------- 环境变量 ---------------------------------------
 export UV_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
@@ -41,6 +54,7 @@ export MCP_LOG_FILE=$PROJECT_DIR/logs/mcp_server.log
 export PYTHONPATH="$PROJECT_DIR/mcp:${PYTHONPATH:-}"
 
 export VLLM_MODEL_NAME
+export FETCH_STRATEGY
 
 # ----------------------------- MCP 启动 ---------------------------------------
 MCP_MODE=${MCP_MODE:-embedded-stdio}
@@ -115,6 +129,8 @@ echo "   Input : $INPUT_FILE"
 echo "   Output: $OUTPUT_FILE"
 echo "   API   : http://${VLLM_HOST}:${VLLM_PORT}/v1"
 echo "   Model : $VLLM_MODEL_NAME"
+echo "   Size  : $MODEL_SIZE"
+echo "   Fetch : $FETCH_STRATEGY"
 echo "   Concurrency: $CONCURRENCY"
 echo "============================================"
 
@@ -137,3 +153,23 @@ python "$PROJECT_DIR/run_inference.py" \
   $EXTRA_ARGS
 
 echo "✅ Done. Results saved to: $OUTPUT_FILE"
+
+# =============================================================================
+# LLM judge
+# =============================================================================
+echo "============================================"
+echo " Running LLM judge"
+echo "   Evaluated model size: $MODEL_SIZE"
+echo "   Judge model: $JUDGE_MODEL"
+echo "   Input : $OUTPUT_FILE"
+echo "   Output: $JUDGE_OUTPUT_FILE"
+echo "   Concurrency: $JUDGE_CONCURRENCY"
+echo "============================================"
+
+python "$PROJECT_DIR/llm_judge.py" \
+  --input "$OUTPUT_FILE" \
+  --output "$JUDGE_OUTPUT_FILE" \
+  --model "$JUDGE_MODEL" \
+  --concurrency "$JUDGE_CONCURRENCY"
+
+echo "✅ Judge done. Results saved to: $JUDGE_OUTPUT_FILE"

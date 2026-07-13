@@ -3,6 +3,7 @@ import base64
 import json
 import logging
 import math
+import os
 from typing import Dict, Any, Optional, List
 from io import BytesIO
 from pydantic import Field, ConfigDict  # 记得导入 ConfigDict
@@ -70,6 +71,9 @@ class ScreenshotTool(BaseTool):
     DEFAULT_TIMEOUT = 60000 
     IMAGE_TAG = "<image>"
     MAX_CONCURRENT_TABS = 64
+    DOM_SNAPSHOT_MAX_CHARS = 10_000_000
+    DOM_SNAPSHOT_MAX_DEPTH = 100
+    DOM_SNAPSHOT_MAX_CHILDREN = 1_000_000
     # IMAGE_TAG = "<vision_start><image_pad><vision_end>"
 
     def __init__(self):
@@ -110,9 +114,7 @@ class ScreenshotTool(BaseTool):
             for i in range(self.BROWSER_POOL_SIZE):
                 browser = await self._playwright.chromium.launch(
                     headless=True,
-                    proxy={
-                        "server": "http://10.120.3.250:7890"
-                    },
+                    proxy={},
                     args=[
                         '--no-sandbox',
                         '--disable-setuid-sandbox',
@@ -145,14 +147,14 @@ class ScreenshotTool(BaseTool):
             name=self.name,
             description=self.description,
             input_schema={
-                "type": "object", 
+                "type": "object",
                 "properties": {
                     "url": {
-                        "type": "array", 
+                        "type": "array",
                         "items": {"type": "string"},
                         "description": "List of URLs"
                     }
-                }, 
+                },
                 "required": ["url"]
             },
             requires_sandbox=False
@@ -180,8 +182,8 @@ class ScreenshotTool(BaseTool):
         if img.mode != 'RGB': 
             img = img.convert('RGB')
         
-        # 2. 缩放 0.7 倍 (Scale)
-        scale_factor = 0.7
+        # 2. 缩放 0.65 倍 (Scale)
+        scale_factor = 0.65
         new_width = int(img.width * scale_factor)
         new_height = int(img.height * scale_factor)
         img = img.resize((new_width, new_height), resample=Image.LANCZOS)
@@ -329,12 +331,60 @@ class ScreenshotTool(BaseTool):
             self.logger.warning(f"Jina AI screenshot fallback error: {e}")
             return []
 
+    async def _capture_dom_only(self, browser: Browser, url: str) -> str:
+        """Lightweight DOM-only capture: open page, scroll to trigger lazy-load, extract DOM text."""
+        if not url.startswith("http"):
+            url = "http://" + url
+
+        context = await browser.new_context(
+            viewport={"width": self.VIEWPORT_WIDTH, "height": 720},
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            ignore_https_errors=True,
+        )
+        page = await context.new_page()
+        try:
+            await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            await self._dismiss_modals(page)
+            await self._auto_scroll(page)
+            dom_snapshot = await self._extract_dom_snapshot(page)
+            return dom_snapshot
+        except Exception as e:
+            self.logger.error(f"DOM capture error for {url}: {e}")
+            raise
+        finally:
+            if page:
+                await page.close()
+            if context:
+                await context.close()
+
     async def execute(self, input_data: ScreenshotInput) -> ToolOutput:
         try:
             await self._ensure_browser_pool()
         except Exception as e:
             return ToolOutput(success=False, error=str(e))
 
+        strategy = os.environ.get("FETCH_STRATEGY", "image")
+
+        # ---- DOM-only strategy: pure text, no images ----
+        if strategy == "dom":
+            async def _process_dom(url: str):
+                async with self._context_semaphore:
+                    browser = await self._acquire_browser()
+                    try:
+                        dom_snapshot = await self._capture_dom_only(browser, url)
+                        return {"text": {"link": url, "dom_snapshot": dom_snapshot}, "images": []}
+                    except Exception as e:
+                        self.logger.warning(f"DOM capture failed for {url}: {e}")
+                        return {"text": {"link": url, "error": f"Failed to capture DOM: {e}"}, "images": []}
+
+            results = await asyncio.gather(
+                *[_process_dom(url) for url in input_data.url],
+                return_exceptions=False,
+            )
+            text_structures = [r["text"] for r in results]
+            return ToolOutput(success=True, data={"text": text_structures, "image": []})
+
+        # ---- Image strategy: screenshots + optional DOM ----
         async def _process_one_url(url: str):
             async with self._context_semaphore:
                 browser = await self._acquire_browser()
@@ -344,15 +394,28 @@ class ScreenshotTool(BaseTool):
 
                     images = []
                     tags = []
+                    dom_snapshot = ""
                     for img in pil_images:
-                        images.append({
-                            "image": self._pil_to_base64_str(img),
-                            "image_wh": img.size
-                        })
-                        tags.append(self.IMAGE_TAG)
+                        if isinstance(img, dict):
+                            if img.get("dom_snapshot") is not None:
+                                dom_snapshot = img.get("dom_snapshot", "")
+                                continue
+                            if img.get("image") is not None:
+                                images.append({
+                                    "image": img.get("image"),
+                                    "image_wh": img.get("image_wh"),
+                                })
+                                tags.append(self.IMAGE_TAG)
+                                continue
+                        if isinstance(img, Image.Image):
+                            images.append({
+                                "image": self._pil_to_base64_str(img),
+                                "image_wh": img.size
+                            })
+                            tags.append(self.IMAGE_TAG)
 
                     return {
-                        "text": {"link": url, "images": tags},
+                        "text": {"link": url, "images": tags, "dom_snapshot": dom_snapshot},
                         "images": images
                     }
 
@@ -426,7 +489,7 @@ class ScreenshotTool(BaseTool):
             # 忽略清理过程中的错误，不要阻塞主流程
             self.logger.warning(f"Dismiss modal warning: {e}")
 
-    async def _capture_single_url(self, browser: Browser, url: str) -> List[Image.Image]:
+    async def _capture_single_url(self, browser: Browser, url: str) -> List[Union[Image.Image, Dict[str, Any]]]:
         if not url.startswith("http"): url = "http://" + url
         
         # 使用动态视口 + 忽略证书错误
@@ -458,6 +521,7 @@ class ScreenshotTool(BaseTool):
 
             await self._auto_scroll(page)
             print('_auto_scroll!')
+            dom_snapshot = await self._extract_dom_snapshot(page)
             
             full_height = await page.evaluate("Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)")
             full_width = await page.evaluate("Math.max(document.body.scrollWidth, document.body.offsetWidth)")
@@ -497,8 +561,8 @@ class ScreenshotTool(BaseTool):
                     )
                     img = Image.open(BytesIO(image_bytes))
                     if img.mode != 'RGB': img = img.convert('RGB')
-                    # 3. --- 新增：将长宽都压缩为原来的 0.7 倍 ---
-                    scale_factor = 0.7
+                    # 3. --- 新增：将长宽都压缩为原来的 0.65 倍 ---
+                    scale_factor = 0.65
                     new_width = int(img.width * scale_factor)
                     new_height = int(img.height * scale_factor)
 
@@ -515,6 +579,7 @@ class ScreenshotTool(BaseTool):
                 next_step = self.SLICE_HEIGHT - self.OVERLAP_HEIGHT
                 current_y += next_step
             print('pil_image_list!')
+            pil_image_list.append({"dom_snapshot": dom_snapshot})
             return pil_image_list
             
         except Exception as e:
@@ -541,6 +606,108 @@ class ScreenshotTool(BaseTool):
         await page.evaluate("window.scrollTo(0, 0)")
         await asyncio.sleep(0.5)
 
+    async def _extract_dom_snapshot(self, page) -> str:
+        """Return a compact visible-DOM text tree for snapshot comparison."""
+        try:
+            snapshot = await page.evaluate(
+                """
+                ({maxDepth, maxChildren, maxChars}) => {
+                  const skipTags = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'SVG']);
+                  const blockTags = new Set([
+                    'ARTICLE','ASIDE','BODY','DD','DETAILS','DIALOG','DIV','DL','DT','FIELDSET',
+                    'FIGCAPTION','FIGURE','FOOTER','FORM','H1','H2','H3','H4','H5','H6','HEADER',
+                    'LI','MAIN','NAV','OL','P','SECTION','SUMMARY','TABLE','TBODY','TD','TFOOT',
+                    'TH','THEAD','TR','UL','BLOCKQUOTE','PRE'
+                  ]);
+                  const meaningfulInline = new Set(['A', 'BUTTON', 'IMG', 'INPUT', 'SELECT', 'TEXTAREA', 'LABEL']);
+
+                  function visible(el) {
+                    if (!el || el.nodeType !== Node.ELEMENT_NODE) return true;
+                    const style = window.getComputedStyle(el);
+                    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) return false;
+                    const rect = el.getBoundingClientRect();
+                    return rect.width > 0 || rect.height > 0 || el.textContent.trim().length > 0;
+                  }
+
+                  function clean(text) {
+                    return (text || '').replace(/\s+/g, ' ').trim();
+                  }
+
+                  function ownText(el) {
+                    const parts = [];
+                    for (const node of el.childNodes) {
+                      if (node.nodeType === Node.TEXT_NODE) {
+                        const text = clean(node.textContent);
+                        if (text) parts.push(text);
+                      }
+                    }
+                    return parts.join(' ');
+                  }
+
+                  function attrs(el) {
+                    const out = [];
+                    const role = el.getAttribute('role');
+                    const aria = el.getAttribute('aria-label');
+                    const title = el.getAttribute('title');
+                    const alt = el.getAttribute('alt');
+                    if (role) out.push(`role=${JSON.stringify(role)}`);
+                    if (aria) out.push(`aria=${JSON.stringify(clean(aria))}`);
+                    if (title) out.push(`title=${JSON.stringify(clean(title))}`);
+                    if (alt) out.push(`alt=${JSON.stringify(clean(alt))}`);
+                    if (el.tagName === 'A' && el.href) out.push(`href=${JSON.stringify(el.href)}`);
+                    if ((el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && el.placeholder) {
+                      out.push(`placeholder=${JSON.stringify(clean(el.placeholder))}`);
+                    }
+                    return out.length ? ' ' + out.join(' ') : '';
+                  }
+
+                  const lines = [];
+                  let seenChildren = 0;
+                  let seenChars = 0;
+
+                  function push(line) {
+                    if (!line || seenChars >= maxChars) return;
+                    const remaining = maxChars - seenChars;
+                    const clipped = line.length > remaining ? line.slice(0, remaining) : line;
+                    lines.push(clipped);
+                    seenChars += clipped.length + 1;
+                  }
+
+                  function walk(el, depth) {
+                    if (!el || seenChildren >= maxChildren || seenChars >= maxChars) return;
+                    if (el.nodeType !== Node.ELEMENT_NODE) return;
+                    if (skipTags.has(el.tagName) || !visible(el)) return;
+
+                    const tag = el.tagName.toLowerCase();
+                    const text = ownText(el);
+                    const keep = depth === 0 || blockTags.has(el.tagName) || meaningfulInline.has(el.tagName) || text;
+                    if (keep) {
+                      seenChildren += 1;
+                      push(`${'  '.repeat(depth)}<${tag}${attrs(el)}>${text ? ' ' + text : ''}`);
+                    }
+
+                    if (depth >= maxDepth) return;
+                    for (const child of el.children) {
+                      walk(child, keep ? depth + 1 : depth);
+                      if (seenChildren >= maxChildren || seenChars >= maxChars) break;
+                    }
+                  }
+
+                  walk(document.body || document.documentElement, 0);
+                  return lines.join('\\n');
+                }
+                """,
+                {
+                    "maxDepth": self.DOM_SNAPSHOT_MAX_DEPTH,
+                    "maxChildren": self.DOM_SNAPSHOT_MAX_CHILDREN,
+                    "maxChars": self.DOM_SNAPSHOT_MAX_CHARS,
+                },
+            )
+            return snapshot or ""
+        except Exception as e:
+            self.logger.warning(f"DOM snapshot extraction failed: {e}")
+            return ""
+
 
 # ---------------------------------------------------------------------------
 # OpenAI function-calling schema (used by inference.py to declare tools)
@@ -550,7 +717,29 @@ fetch_page_tool_img = {
     "type": "function",
     "function": {
         "name": "fetch_url",
-        "description": "Fetch webpage(s) and return the screenshot of the page.",
+        "description": "Fetch webpage(s) and return page screenshots plus a compact visible-DOM text snapshot for comparison.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "The URL(s) of the webpage(s) to Fetch. "
+                        "Can be a single URL or an array of URLs."
+                    ),
+                }
+            },
+            "required": ["url"],
+        },
+    },
+}
+
+fetch_page_tool_dom = {
+    "type": "function",
+    "function": {
+        "name": "fetch_url",
+        "description": "Fetch webpage(s) and return a structured DOM text snapshot (no images).",
         "parameters": {
             "type": "object",
             "properties": {
@@ -610,11 +799,13 @@ def call_fetch_url_sync_img(arguments):
     tool_name = "fetch_url"
 
     async def _run():
+        fetch_strategy = _os.environ.get("FETCH_STRATEGY", "image")
         transport = StdioTransport(
             command="bash",
             args=[
                 "-c",
                 f"export PLAYWRIGHT_BROWSERS_PATH={pw_path} && "
+                f"export FETCH_STRATEGY={fetch_strategy} && "
                 f"UV_INDEX_URL=https://mirrors.aliyun.com/pypi/simple uv run --isolated --no-project "
                 f"--with {whl_path} "
                 f"mcp-tools-server --config {cfg_path} "
