@@ -61,7 +61,7 @@ class ScreenshotInput(ToolInput):
 class ScreenshotTool(BaseTool):
     """
     高并发优化版截图工具 - 批量版 (Batch Support)
-    支持输入 URL 列表，返回对应的多维图片数组。
+    支持输入 URL 列表，每个 URL 返回截图切片列表。
     """
     
     VIEWPORT_WIDTH = 1280
@@ -114,7 +114,7 @@ class ScreenshotTool(BaseTool):
             for i in range(self.BROWSER_POOL_SIZE):
                 browser = await self._playwright.chromium.launch(
                     headless=True,
-                    proxy={},
+                    proxy={"server": "http://10.120.0.246:7890"},
                     args=[
                         '--no-sandbox',
                         '--disable-setuid-sandbox',
@@ -384,7 +384,7 @@ class ScreenshotTool(BaseTool):
             text_structures = [r["text"] for r in results]
             return ToolOutput(success=True, data={"text": text_structures, "image": []})
 
-        # ---- Image strategy: screenshots + optional DOM ----
+        # ---- Image strategy: screenshots only ----
         async def _process_one_url(url: str):
             async with self._context_semaphore:
                 browser = await self._acquire_browser()
@@ -394,12 +394,8 @@ class ScreenshotTool(BaseTool):
 
                     images = []
                     tags = []
-                    dom_snapshot = ""
                     for img in pil_images:
                         if isinstance(img, dict):
-                            if img.get("dom_snapshot") is not None:
-                                dom_snapshot = img.get("dom_snapshot", "")
-                                continue
                             if img.get("image") is not None:
                                 images.append({
                                     "image": img.get("image"),
@@ -414,10 +410,7 @@ class ScreenshotTool(BaseTool):
                             })
                             tags.append(self.IMAGE_TAG)
 
-                    return {
-                        "text": {"link": url, "images": tags, "dom_snapshot": dom_snapshot},
-                        "images": images
-                    }
+                    return {"text": {}, "images": images}
 
                 except Exception as e:
                     self.logger.warning(f"Screenshot failed for {url}: {e}")
@@ -499,7 +492,6 @@ class ScreenshotTool(BaseTool):
             ignore_https_errors=True
         )
         page = await context.new_page()
-        pil_image_list = []
 
         try:
             self.logger.debug(f"Navigating to {url}...")
@@ -517,12 +509,9 @@ class ScreenshotTool(BaseTool):
                 `;
                 document.head.appendChild(style);
             """)
-            print('add_init_script!')
 
             await self._auto_scroll(page)
-            print('_auto_scroll!')
-            dom_snapshot = await self._extract_dom_snapshot(page)
-            
+
             full_height = await page.evaluate("Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)")
             full_width = await page.evaluate("Math.max(document.body.scrollWidth, document.body.offsetWidth)")
             
@@ -531,55 +520,45 @@ class ScreenshotTool(BaseTool):
             
             view_width = int(full_width) if full_width > self.VIEWPORT_WIDTH else self.VIEWPORT_WIDTH
             current_y = 0
-            
-            # --- 截图循环 ---
-            MIN_SLICE_HEIGHT = 200 # 定义一个最小高度，防止出现长宽比超限的窄条
+            pil_image_list = []
+
+            MIN_SLICE_HEIGHT = 200
             while current_y < full_height:
-                print('MIN_SLICE_HEIGHT!',current_y)
                 remaining = full_height - current_y
-                if remaining <= 0: break
-                # 如果剩余部分太小，且已经有截图了，就没必要再截这几像素了
-                if remaining < MIN_SLICE_HEIGHT and len(pil_image_list) > 0:
+                if remaining <= 0:
                     break
+                if remaining < MIN_SLICE_HEIGHT and pil_image_list:
+                    break
+
                 current_viewport_height = int(min(self.SLICE_HEIGHT, remaining))
                 actual_viewport_height = max(current_viewport_height, MIN_SLICE_HEIGHT)
-
-                await page.set_viewport_size({
-                    "width": view_width,
-                    "height": actual_viewport_height
-                })
+                await page.set_viewport_size({"width": view_width, "height": actual_viewport_height})
                 await page.evaluate(f"window.scrollTo(0, {current_y})")
                 await asyncio.sleep(0.5)
 
                 try:
-                    
                     image_bytes = await page.screenshot(
-                        full_page=False, 
-                        type='jpeg', 
+                        full_page=False,
+                        type='jpeg',
                         quality=70,
-                        caret="hide"
+                        caret="hide",
                     )
                     img = Image.open(BytesIO(image_bytes))
-                    if img.mode != 'RGB': img = img.convert('RGB')
-                    # 3. --- 新增：将长宽都压缩为原来的 0.65 倍 ---
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
+
                     scale_factor = 0.65
                     new_width = int(img.width * scale_factor)
                     new_height = int(img.height * scale_factor)
-
-                    # 使用 LANCZOS 算法进行高质量缩放
                     img = img.resize((new_width, new_height), resample=Image.LANCZOS)
                     if _need_process(img.width, img.height, 100):
                         img = adaptive_resize_image(img, max_aspect_ratio=100)
-                    # ----------------------------------------
                     pil_image_list.append(img)
-
                 except Exception as slice_err:
                     self.logger.warning(f"Slice capture failed at y={current_y}: {slice_err}")
 
-                next_step = self.SLICE_HEIGHT - self.OVERLAP_HEIGHT
-                current_y += next_step
-            print('pil_image_list!')
-            pil_image_list.append({"dom_snapshot": dom_snapshot})
+                current_y += self.SLICE_HEIGHT - self.OVERLAP_HEIGHT
+
             return pil_image_list
             
         except Exception as e:
@@ -800,6 +779,10 @@ def call_fetch_url_sync_img(arguments):
 
     async def _run():
         fetch_strategy = _os.environ.get("FETCH_STRATEGY", "image")
+        try:
+            fetch_timeout_s = float(_os.environ.get("MCP_FETCH_TIMEOUT", "180"))
+        except ValueError:
+            fetch_timeout_s = 180.0
         transport = StdioTransport(
             command="bash",
             args=[
@@ -818,11 +801,11 @@ def call_fetch_url_sync_img(arguments):
             async with client:
                 result = await asyncio.wait_for(
                     client.call_tool(name=tool_name, arguments=arguments),
-                    timeout=50,
+                    timeout=fetch_timeout_s,
                 )
                 return result
         except Exception as e:
-            print(f"[call_fetch_url_sync_img] Internal error: {e}")
+            print(f"[call_fetch_url_sync_img] Internal error: {type(e).__name__}: {e}")
             return None
         finally:
             try:

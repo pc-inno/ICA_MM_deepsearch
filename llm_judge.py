@@ -40,13 +40,16 @@ from tqdm import tqdm
 DEFAULT_BASE_URL = "https://tokenhub.sensetime.com/v1"
 DEFAULT_MODEL = "bailian/deepseek-v4-flash"
 
-SYSTEM_PROMPT = """你是一个严格但公平的问答评测裁判。你的任务是判断模型预测是否回答了题目，并且是否与标准答案语义等价。
+SYSTEM_PROMPT = """你是一个宽松但公平的问答评测裁判。你的任务是判断模型预测是否实质回答了题目，并且是否与标准答案语义等价。
 
 评分规则：
 - 只给 1 或 0。
-- 若预测最终答案与标准答案语义等价、同名别称等价、或包含标准答案且没有互相矛盾的最终答案，给 1。
+- 若预测最终答案与标准答案语义等价、同名别称等价、单位换算后等价、或明确包含标准答案，给 1。
+- 若预测给出了清晰的最终答案且与标准答案一致，即使推理过程冗长、证据表述不确定、或中间过程有轻微矛盾，也给 1。
+- 数值题允许合理四舍五入、单位换算、百分号/倍数/集数等格式差异，以及不影响结论的极小误差；若标准答案是整数，预测因四舍五入相差 1 且过程可支持标准答案，也可给 1。
+- 若预测列出多个候选，但最终明确选择的答案与标准答案一致，给 1。
 - 若预测最终答案错误、缺失、拒答、多个互斥答案无法确定、或关键实体/数值不匹配，给 0。
-- 只评判最终答案，不因为推理过程冗长而扣分；但若推理过程和最终答案冲突，以明确的最终答案为准。
+- 只评判最终答案，不因为推理过程冗长而扣分；若推理过程和最终答案冲突，以明确的最终答案为准。
 - 不要使用外部搜索；只能依据题目、标准答案、预测内容和常识判断等价性。
 
 必须只输出一个 JSON 对象，不要输出 Markdown：
@@ -194,6 +197,9 @@ def judge_one(
 
 def summarize(path: Path) -> dict[str, Any]:
     total = correct = incorrect = errors = skipped_malformed = 0
+    inference_errors = retryable_inference_errors = 0
+    correct_without_inference_errors = 0
+    completed_total = completed_correct = completed_incorrect = 0
     by_type: dict[str, dict[str, int]] = {}
     with path.open("r", encoding="utf-8") as f:
         for line_no, line in enumerate(f, 1):
@@ -207,24 +213,69 @@ def summarize(path: Path) -> dict[str, Any]:
                 continue
             total += 1
             typ = str(obj.get("type", ""))
-            bucket = by_type.setdefault(typ, {"total": 0, "correct": 0, "incorrect": 0, "errors": 0})
+            bucket = by_type.setdefault(
+                typ,
+                {
+                    "total": 0,
+                    "correct": 0,
+                    "incorrect": 0,
+                    "errors": 0,
+                    "inference_errors": 0,
+                    "retryable_inference_errors": 0,
+                    "completed_total": 0,
+                    "completed_correct": 0,
+                    "completed_incorrect": 0,
+                },
+            )
             bucket["total"] += 1
+            has_inference_error = bool(obj.get("error")) or bool(obj.get("should_retry"))
+            is_completed = bool(obj.get("prediction")) and not has_inference_error
+            if has_inference_error:
+                inference_errors += 1
+                bucket["inference_errors"] += 1
+            if obj.get("should_retry"):
+                retryable_inference_errors += 1
+                bucket["retryable_inference_errors"] += 1
+            if is_completed:
+                completed_total += 1
+                bucket["completed_total"] += 1
             if obj.get("judge_score") == 1:
                 correct += 1
                 bucket["correct"] += 1
+                if not has_inference_error:
+                    correct_without_inference_errors += 1
+                if is_completed:
+                    completed_correct += 1
+                    bucket["completed_correct"] += 1
             elif obj.get("judge_score") == 0:
                 incorrect += 1
                 bucket["incorrect"] += 1
+                if is_completed:
+                    completed_incorrect += 1
+                    bucket["completed_incorrect"] += 1
             else:
                 errors += 1
                 bucket["errors"] += 1
+    evaluated = total - errors
+    evaluated_without_inference_errors = total - errors - inference_errors
     return {
         "total": total,
         "correct": correct,
         "incorrect": incorrect,
         "errors": errors,
+        "inference_errors": inference_errors,
+        "retryable_inference_errors": retryable_inference_errors,
+        "completed_total": completed_total,
+        "completed_correct": completed_correct,
+        "completed_incorrect": completed_incorrect,
         "skipped_malformed": skipped_malformed,
-        "accuracy": (correct / (total - errors)) if total > errors else None,
+        "accuracy": (correct / evaluated) if evaluated > 0 else None,
+        "accuracy_excluding_inference_errors": (
+            correct_without_inference_errors / evaluated_without_inference_errors
+            if evaluated_without_inference_errors > 0
+            else None
+        ),
+        "completed_accuracy": (completed_correct / completed_total) if completed_total > 0 else None,
         "by_type": by_type,
     }
 
@@ -235,7 +286,7 @@ def main() -> int:
     parser.add_argument("--output", required=True, help="Output judged JSONL")
     parser.add_argument("--model", default=DEFAULT_MODEL, help=f"Judge model (default: {DEFAULT_MODEL})")
     parser.add_argument("--api-base", default=os.getenv("HERMES_BASE_URL") or os.getenv("OPENAI_BASE_URL") or DEFAULT_BASE_URL)
-    parser.add_argument("--api-key", default="sk-2f8nSdpTYtOEvTOraocJ3dY4jDinlHRqRgxp3974pwgbbvkp")
+    parser.add_argument("--api-key", default="")
     parser.add_argument("--concurrency", type=int, default=8)
     parser.add_argument("--limit", type=int, default=0, help="Only judge first N input rows")
     parser.add_argument("--resume", action="store_true", help="Skip ids already present in output")

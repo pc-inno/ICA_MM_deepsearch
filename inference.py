@@ -220,24 +220,23 @@ def _handle_fetch_url(func_args, tool_call_id):
             "content": "\n\n".join(dom_content),
         }
 
-    # ---- Image strategy: multimodal content (text + image_url) ----
-    text_content = res_dict.get("text", "")
-
+    # ---- Image strategy: multimodal content, images only ----
     image_list = []
     for slices in (res_dict.get("image") or []):
         for img_item in slices:
-            image_list.append(img_item.get("image"))
+            image = img_item.get("image")
+            if image:
+                image_list.append(image)
 
-    text_segments = json.dumps(text_content).split("<image>")
     content_parts = []
-    for i, segment in enumerate(text_segments):
-        if segment.strip():
-            content_parts.append({"type": "text", "text": segment})
-        if i < len(image_list):
-            content_parts.append({
-                "type": "image_url",
-                "image_url": {"url": f"data:image/jpeg;base64,{image_list[i]}"},
-            })
+    for image in image_list:
+        content_parts.append({
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{image}"},
+        })
+
+    if not content_parts:
+        content_parts.append({"type": "text", "text": "No screenshots captured."})
 
     return {
         "role": "tool",
