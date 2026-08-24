@@ -1,4 +1,4 @@
-# ICA: Information-Aware Credit Assignment for Visually Grounded Long-Horizon Information-Seeking Agents
+# [EMNLP 2026] ICA: Information-Aware Credit Assignment for Visually Grounded Long-Horizon Information-Seeking Agents
 
 <div align="center">
   <a href="https://arxiv.org/abs/xxxx.xxxxx"><img alt="arXiv Paper" src="https://img.shields.io/badge/arXiv-Paper-b31b1b?style=flat-square&logo=arxiv&logoColor=white"></a>
@@ -7,6 +7,8 @@
 </div>
 
 ## News & Updates
+2026-08-20: Our paper is accepted as a **main** conference paper at EMNLP 2026! 🎉🥳
+
 2026-05-20: We have updated our paper, dataset and models!
 
 2026-02-11: We have open-sourced the [paper](PASTE_PAPER_URL_HERE), [dataset](https://huggingface.co/ICA-DeepResearch/datasets) and [models](https://huggingface.co/ICA-DeepResearch/models)
