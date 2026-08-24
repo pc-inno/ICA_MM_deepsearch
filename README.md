@@ -7,7 +7,7 @@
 </div>
 
 ## News & Updates
-2026-08-20: Our paper is accepted as a **main** conference paper at EMNLP 2026! 🎉🥳
+2026-08-21: Our paper is accepted as a **main** conference paper at EMNLP 2026! 🎉🥳
 
 2026-05-20: We have updated our paper, dataset and models!
 
