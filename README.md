@@ -1,7 +1,7 @@
 # [EMNLP 2026 main] ICA: Information-Aware Credit Assignment for Visually Grounded Long-Horizon Information-Seeking Agents
 
 <div align="center">
-  <a href="https://arxiv.org/abs/xxxx.xxxxx"><img alt="arXiv Paper" src="https://img.shields.io/badge/arXiv-Paper-b31b1b?style=flat-square&logo=arxiv&logoColor=white"></a>
+  <a href="https://arxiv.org/abs/2602.10863"><img alt="arXiv Paper" src="https://img.shields.io/badge/arXiv-Paper-b31b1b?style=flat-square&logo=arxiv&logoColor=white"></a>
   <a href="https://huggingface.co/ICA-DeepResearch/datasets"><img alt="Hugging Face Datasets" src="https://img.shields.io/badge/Hugging%20Face-Datasets-ffbd59?style=flat-square&logo=huggingface&logoColor=FFD21E"></a>
   <a href="https://huggingface.co/ICA-DeepResearch/models"><img alt="Hugging Face Models" src="https://img.shields.io/badge/Hugging%20Face-Models-ffbd59?style=flat-square&logo=huggingface&logoColor=FFD21E"></a>
 </div>
@@ -11,7 +11,7 @@
 
 2026-05-20: We have updated our paper, dataset and models!
 
-2026-02-11: We have open-sourced the [paper](PASTE_PAPER_URL_HERE), [dataset](https://huggingface.co/ICA-DeepResearch/datasets) and [models](https://huggingface.co/ICA-DeepResearch/models)
+2026-02-11: We have open-sourced the [paper](https://arxiv.org/abs/2602.10863), [dataset](https://huggingface.co/ICA-DeepResearch/datasets) and [models](https://huggingface.co/ICA-DeepResearch/models)
 
 
 ## Introduction
