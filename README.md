@@ -1,4 +1,4 @@
-# [EMNLP 2026] ICA: Information-Aware Credit Assignment for Visually Grounded Long-Horizon Information-Seeking Agents
+# [EMNLP 2026 main] ICA: Information-Aware Credit Assignment for Visually Grounded Long-Horizon Information-Seeking Agents
 
 <div align="center">
   <a href="https://arxiv.org/abs/xxxx.xxxxx"><img alt="arXiv Paper" src="https://img.shields.io/badge/arXiv-Paper-b31b1b?style=flat-square&logo=arxiv&logoColor=white"></a>
